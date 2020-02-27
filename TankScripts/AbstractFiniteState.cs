@@ -24,6 +24,7 @@ public abstract class AbstractFiniteState : ScriptableObject
     public ExecutionState ExecutionState { get; protected set; }
 
     public abstract void UpdateState();
+
     public virtual void OnEnable()
     {
         ExecutionState = ExecutionState.NONE;

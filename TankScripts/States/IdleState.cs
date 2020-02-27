@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class IdleState : AbstractFiniteState
 {
-    [CreateAssetMenu(fileName ="IdleState"), menuName=]
+   // [CreateAssetMenu(fileName ="IdleState"), order = 1]
     public override bool EnterState()
     {
          base.EnterState();
