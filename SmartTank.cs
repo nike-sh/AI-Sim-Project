@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,13 +10,17 @@ public class SmartTank : AITank
     {
         idle,
         patrol,
-        attack
+        attack,
+        findCover,
+        collectConsumables
     }
 
 
     [SerializeField] private AIStates state; //current state of the AI
     [SerializeField] private bool changeState;
     [SerializeField] float ammo;
+    [SerializeField] float health;
+    [SerializeField] float fuel;
 
 
     public Dictionary<GameObject, float> targets = new Dictionary<GameObject, float>();
@@ -27,7 +32,7 @@ public class SmartTank : AITank
     public GameObject baseFound;
 
     float t;
-    bool fuckoff = false;
+    bool fuckoff = true;
 
 
     public override void AITankStart()
@@ -42,6 +47,8 @@ public class SmartTank : AITank
         consumables = GetConsumablesFound;
         bases = GetBasesFound;
         ammo = GetAmmo;
+        fuel = GetFuel;
+        health = GetHealth;
         FSMController();
     }
 
@@ -68,8 +75,17 @@ public class SmartTank : AITank
         {
             Attack();
         }
+        else if (state == AIStates.findCover)
+        {
+            FindCover();
+        }
+        else if (state == AIStates.collectConsumables)
+        {
+            CollectConsumable();
+        }
     }
 
+ 
     public void ChangeState()
     {
         if (changeState)
@@ -100,8 +116,23 @@ public class SmartTank : AITank
                         state = AIStates.patrol;
                         changeState = false;
                     }
+                    if (GetHealth < 50 || GetAmmo < 5)
+                    {
+                        state = AIStates.findCover;
+                        changeState = false;
+                    }
                     break;
 
+                case AIStates.findCover:
+                   
+                    break;
+
+                case AIStates.collectConsumables:
+                    if (GetHealth < 50 || GetAmmo < 5 || GetFuel <50)
+                    {
+                        changeState = false;
+                    }
+                    break;
 
 
             }
@@ -134,7 +165,7 @@ public class SmartTank : AITank
         {
             FireAtPointInWorld(target);
         }
-        else if (Vector3.Distance(transform.position, target.transform.position) > 35f)
+        else if (Vector3.Distance(transform.position, target.transform.position) > 55f)
         {
             target = null;
             changeState = true;
@@ -146,7 +177,39 @@ public class SmartTank : AITank
 
     }
 
+    private void FindCover()
+    {
+        Debug.Log("FINDING COVER");
+    }
 
+   private void CollectConsumable()
+    {
+        Debug.Log("FINDING CONSUMABLES");
+        if (consumable = GameObject.FindGameObjectWithTag("Health"))
+        {
+            Debug.Log("FOUND HEALTH");
+
+        }
+        if (consumables.Count > 0)
+        {
+            consumable = consumables.First().Key;
+            FollowPathToPointInWorld(consumable, 1f);
+            t += Time.deltaTime;
+            if (t > 10)
+            {
+                FindAnotherRandomPoint();
+                t = 0;
+            }
+        }
+        else
+        {
+            target = null;
+            consumable = null;
+            baseFound = null;
+            FollowPathToRandomPoint(1f);
+            changeState = true;
+        }
+    }
 
 
 
@@ -158,7 +221,7 @@ public class SmartTank : AITank
 
     public void AITankUpdateSalimsEdition()
     {
-        if (fuckoff)
+        if (fuckoff == false)
         {
             //Get the targets found from the sensor view
             targets = GetTargetsFound;
