@@ -19,21 +19,22 @@ public class SmartTank : AITank
 
     [SerializeField] private AIStates state; //current state of the AI
     [SerializeField] private bool changeState;
-    [SerializeField] float ammo;
-    [SerializeField] float health;
-    [SerializeField] float fuel;
+    [SerializeField] float currentAmmo;
+    [SerializeField] float currentHealth;
+    [SerializeField] float currentFuel;
 
 
     public Dictionary<GameObject, float> targets = new Dictionary<GameObject, float>();
     public Dictionary<GameObject, float> consumables = new Dictionary<GameObject, float>();
     public Dictionary<GameObject, float> bases = new Dictionary<GameObject, float>();
 
+    public GameObject homeTreeeee;
     public GameObject target;
     public GameObject consumable;
     public GameObject baseFound;
-
-    float t;
-    bool fuckoff = true;
+    public List<GameObject> currentBases;
+    float timer;
+    private bool workpls = true;
 
 
     public override void AITankStart()
@@ -46,10 +47,10 @@ public class SmartTank : AITank
     {
         targets = GetTargetsFound;
         consumables = GetConsumablesFound;
-        bases = GetBasesFound;
-        ammo = GetAmmo;
-        fuel = GetFuel;
-        health = GetHealth;
+        currentBases = GetMyBases;
+        currentAmmo = GetAmmo;
+        currentFuel = GetFuel;
+        currentHealth = GetHealth;
         FSMController();
     }
 
@@ -84,9 +85,14 @@ public class SmartTank : AITank
         {
             CollectConsumable();
         }
+        else if (state == AIStates.defendBase)
+        {
+            DefendBase();
+        }
     }
 
- 
+
+
     public void ChangeState()
     {
         if (changeState)
@@ -94,11 +100,14 @@ public class SmartTank : AITank
             switch (state)
             {
                 case AIStates.idle:
-                    state = AIStates.patrol;
-                    changeState = false;
-                    break;
+                    {
 
+                        state = AIStates.patrol;
+                        
+                        changeState = false;
+                        break;
 
+                    }
                 case AIStates.patrol:
                     if (targets.Count > 0 && targets.First().Key != null)
                     {
@@ -106,6 +115,11 @@ public class SmartTank : AITank
                         if (target != null)
                         {
                             state = AIStates.attack;
+                            changeState = false;
+                        }
+                        else if (bases.Count < 2)
+                        {
+                            state = AIStates.defendBase;
                             changeState = false;
                         }
                     }
@@ -119,22 +133,34 @@ public class SmartTank : AITank
                     }
                     if (GetHealth < 50 || GetAmmo < 5)
                     {
-                        state = AIStates.findCover;
-                        changeState = false;
+                        //state = AIStates.findCover;
+                        //changeState = false;
                     }
                     break;
 
                 case AIStates.findCover:
-                   
+
                     break;
 
                 case AIStates.collectConsumables:
-                    if (GetHealth < 50 || GetAmmo < 5 || GetFuel <50)
+                    if (GetHealth < 50 || GetAmmo < 5 || GetFuel < 50)
                     {
                         changeState = false;
                     }
                     break;
 
+                case AIStates.defendBase:
+                    if (target != null)
+                    {
+                        state = AIStates.attack;
+                        changeState = false;
+                    }
+                    else if (bases.Count < 1)
+                    {
+                        state = AIStates.patrol;
+                        changeState = false;
+                    }
+                    break;
 
             }
         }
@@ -143,24 +169,25 @@ public class SmartTank : AITank
     private void Idle()
     {
         changeState = true;
-        Debug.Log("AI is idle rn");
+        Debug.Log("AI IS IDLE");
     }
 
     private void Patrol()
     {
-        Debug.Log("AI is patrolling rn");
+        Debug.Log("AI  IS PATROLLING");
         FollowPathToRandomPoint(1f);
-        t += Time.deltaTime;
-        if (t > 10)
+        timer += Time.deltaTime;
+        if (timer > 10)
         {
             FindAnotherRandomPoint();
-            t = 0;
+            timer = 0;
         }
         changeState = true;
     }
 
     private void Attack()
     {
+        Debug.Log("TANK IS ATTACKING");
         //get closer to target, and fire
         if (Vector3.Distance(transform.position, target.transform.position) < 25f)
         {
@@ -178,12 +205,15 @@ public class SmartTank : AITank
 
     }
 
+    /// <summary>
+    /// NEED TO IMPLIMENT
+    /// </summary>
     private void FindCover()
     {
         Debug.Log("FINDING COVER");
     }
 
-   private void CollectConsumable()
+    private void CollectConsumable()
     {
         Debug.Log("FINDING CONSUMABLES");
         if (consumable = GameObject.FindGameObjectWithTag("Health"))
@@ -195,11 +225,11 @@ public class SmartTank : AITank
         {
             consumable = consumables.First().Key;
             FollowPathToPointInWorld(consumable, 1f);
-            t += Time.deltaTime;
-            if (t > 10)
+            timer += Time.deltaTime;
+            if (timer > 10)
             {
                 FindAnotherRandomPoint();
-                t = 0;
+                timer = 0;
             }
         }
         else
@@ -212,10 +242,39 @@ public class SmartTank : AITank
         }
     }
 
+    private void DefendBase()
+    {
+        if (currentBases.Count < 2)
+        {
+            Debug.Log("DEFENDING BASE");
+            FollowPathToPointInWorld( homeTreeeee ,1f);
+            if (target == null)
+            {
+                StopTank();
+            }
+            else
+            {
+                changeState = true;
+                state = AIStates.attack;
+
+                StartTank();
+            }
+        }
+        else if (currentBases.Count == 0)
+        {
+            state = AIStates.patrol;
+            changeState = true;
+        }
+    }
+
+
+
+
+
 
     public void AITankUpdateSalimsEdition()
     {
-        if (fuckoff == false)
+        if (workpls == false)
         {
             //Get the targets found from the sensor view
             targets = GetTargetsFound;
@@ -230,11 +289,11 @@ public class SmartTank : AITank
                 {
                     consumable = consumables.First().Key;
                     FollowPathToPointInWorld(consumable, 1f);
-                    t += Time.deltaTime;
-                    if (t > 10)
+                    timer += Time.deltaTime;
+                    if (timer > 10)
                     {
                         FindAnotherRandomPoint();
-                        t = 0;
+                        timer = 0;
                     }
                 }
                 else
@@ -295,11 +354,11 @@ public class SmartTank : AITank
                     consumable = null;
                     baseFound = null;
                     FollowPathToRandomPoint(1f);
-                    t += Time.deltaTime;
-                    if (t > 10)
+                    timer += Time.deltaTime;
+                    if (timer > 10)
                     {
                         FindAnotherRandomPoint();
-                        t = 0;
+                        timer = 0;
                     }
                 }
             }
