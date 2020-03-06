@@ -12,7 +12,8 @@ public class SmartTank : AITank
         patrol,
         attack,
         findCover,
-        collectConsumables
+        collectConsumables,
+        defendBase
     }
 
 
@@ -210,13 +211,6 @@ public class SmartTank : AITank
             changeState = true;
         }
     }
-
-
-
-
-
-
-
 
 
     public void AITankUpdateSalimsEdition()
