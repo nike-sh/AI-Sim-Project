@@ -11,7 +11,7 @@ public class SmartTank : AITank
         idle,
         patrol,
         attack,
-        findCover,
+        flee,
         collectConsumables,
         defendBase
     }
@@ -266,6 +266,14 @@ public class SmartTank : AITank
             changeState = true;
         }
     }
+
+
+
+
+
+
+
+
 
 
 
