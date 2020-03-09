@@ -47,11 +47,13 @@ public class SmartTank : AITank
     {
         targets = GetTargetsFound;
         consumables = GetConsumablesFound;
+        bases = GetBasesFound;
         currentBases = GetMyBases;
         currentAmmo = GetAmmo;
         currentFuel = GetFuel;
         currentHealth = GetHealth;
         FSMController();
+
     }
 
 
@@ -77,10 +79,10 @@ public class SmartTank : AITank
         {
             Attack();
         }
-        else if (state == AIStates.findCover)
-        {
-            FindCover();
-        }
+       // else if (state == AIStates.findCover)
+       // {
+       //     FindCover();
+       // }
         else if (state == AIStates.collectConsumables)
         {
             CollectConsumable();
@@ -112,21 +114,33 @@ public class SmartTank : AITank
                     if (targets.Count > 0 && targets.First().Key != null)
                     {
                         target = targets.First().Key;
-                        if (target != null)
+                        if (target != null && currentAmmo >= 4)
                         {
                             state = AIStates.attack;
                             changeState = false;
                         }
-                        else if (bases.Count < 2)
+                        else if (currentBases.Count < 2)
                         {
                             state = AIStates.defendBase;
                             changeState = false;
                         }
                     }
+
+                
+                    if (bases.Count > 0 && bases.First().Key !=null)
+                    {
+                        baseFound = bases.First().Key;
+                        if(baseFound != null && currentAmmo >= 4)
+                        {
+                            state = AIStates.attack;
+                            changeState = false;
+                        }
+
+                    }
                     break;
 
                 case AIStates.attack:
-                    if (target == null)
+                    if (target == null || baseFound == null) // if no tatget or no base, change to patrol
                     {
                         state = AIStates.patrol;
                         changeState = false;
@@ -138,9 +152,8 @@ public class SmartTank : AITank
                     }
                     break;
 
-                case AIStates.findCover:
-
-                    break;
+              //  case AIStates.findCover:
+              //    break;
 
                 case AIStates.collectConsumables:
                     if (GetHealth < 50 || GetAmmo < 5 || GetFuel < 50)
@@ -155,7 +168,7 @@ public class SmartTank : AITank
                         state = AIStates.attack;
                         changeState = false;
                     }
-                    else if (bases.Count < 1)
+                    else if (currentBases.Count < 1)
                     {
                         state = AIStates.patrol;
                         changeState = false;
@@ -187,22 +200,44 @@ public class SmartTank : AITank
 
     private void Attack()
     {
-        Debug.Log("TANK IS ATTACKING");
-        //get closer to target, and fire
-        if (Vector3.Distance(transform.position, target.transform.position) < 25f)
+        if(target != null)
         {
-            FireAtPointInWorld(target);
+            Debug.Log("TANK IS ATTACKING");
+            //get closer to target, and fire
+            if (Vector3.Distance(transform.position, target.transform.position) < 25f)
+            {
+                FireAtPointInWorld(target);
+            }
+            else if (Vector3.Distance(transform.position, target.transform.position) > 55f)
+            {
+                target = null;
+                changeState = true;
+            }
+            else
+            {
+             FollowPathToPointInWorld(target, 1f);
+            }
         }
-        else if (Vector3.Distance(transform.position, target.transform.position) > 55f)
+
+        // If base is found, and distance is less than 25 fire at base else change state to patrol
+        if (baseFound != null)
         {
-            target = null;
-            changeState = true;
+            if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
+            {
+                FireAtPointInWorld(baseFound);
+                Debug.Log("FIRING AT ENEMY BASES");
+               
+            }
+            else // get closer to base if base is found
+            {
+                FollowPathToPointInWorld(baseFound, 1f);
+            }
+            
         }
         else
         {
-            FollowPathToPointInWorld(target, 1f);
+            changeState = true;
         }
-
     }
 
     /// <summary>
@@ -236,7 +271,7 @@ public class SmartTank : AITank
         {
             target = null;
             consumable = null;
-            baseFound = null;
+          //  baseFound = null;
             FollowPathToRandomPoint(1f);
             changeState = true;
         }
@@ -279,7 +314,7 @@ public class SmartTank : AITank
 
 
 
-
+    /*
     public void AITankUpdateSalimsEdition()
     {
         if (workpls == false)
@@ -372,5 +407,5 @@ public class SmartTank : AITank
             }
 
         }
-    }
+    }*/
 }
