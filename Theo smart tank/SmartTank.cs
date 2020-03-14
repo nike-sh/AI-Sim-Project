@@ -11,6 +11,7 @@ public class SmartTank : AITank
         idle,
         patrol,
         attack,
+        flee,
         collectConsumables,
         defendBase
     }
@@ -125,9 +126,19 @@ public class SmartTank : AITank
                         }
                     }
 
+                    //Tank goes into collect consumable state if there is a consumable in sight and there are no enemies attacking
+                    if (consumables.Count > 0 && consumables.First().Key != null)
+                    {
+                        consumable = consumables.First().Key;
+                        if(consumable != null)
+                        {
+                            state = AIStates.collectConsumables;
+                            changeState = false;
+                        }
+                    }
 
                     //Tank goes into defend base state when at least 1 base has been destroyed
-                    if (GetFuel < 20 && currentBases.Count > 0)
+                    if (GetFuel < 25 && currentBases.Count < 2)
                     {
                         state = AIStates.defendBase;
                         changeState = false;
@@ -159,16 +170,8 @@ public class SmartTank : AITank
                         changeState = false;
                     }
 
-                    //Tank goes into find cover state if his health is lower that 50 or his ammo is lower than 5
-                    if (GetHealth < 50 || GetAmmo < 5)
-                    {
-                        //state = AIStates.findCover;
-                        //changeState = false;
-                    }
-
-
                     //Tank goes into defend base state if his fuel is really low
-                    if (GetFuel < 20 && currentBases.Count > 0)
+                    if (GetFuel < 25 && currentBases.Count < 2)
                     {
                         state = AIStates.defendBase;
                         changeState = false;
@@ -193,6 +196,21 @@ public class SmartTank : AITank
 
 
                 case AIStates.collectConsumables:
+                    //Tank goes into attack state if there is enemy in sight
+                    if (targets.Count > 0 && targets.First().Key != null)
+                    {
+                        target = targets.First().Key;
+                        if (target != null)
+                        {
+                            state = AIStates.attack;
+                            changeState = false;
+                        }
+                    }
+                    else
+                    {
+                        state = AIStates.patrol;
+                        changeState = false;
+                    }
                     break;
             }
         }
@@ -222,7 +240,23 @@ public class SmartTank : AITank
 
     private void Attack()
     {
-        if (target != null)
+       
+        // If base is found, and distance is less than 25 fire at base else change state to patrol
+        if (baseFound != null && target == null)
+        {
+            if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
+            {
+                FireAtPointInWorld(baseFound);
+                Debug.Log("FIRING AT ENEMY BASES");
+
+            }
+            else // get closer to base if base is found
+            {
+                FollowPathToPointInWorld(baseFound, 1f);
+            }
+
+        }
+        else if (target != null)
         {
             Debug.Log("TANK IS ATTACKING");
             //get closer to target, and fire
@@ -241,21 +275,6 @@ public class SmartTank : AITank
             }
         }
 
-        // If base is found, and distance is less than 25 fire at base else change state to patrol
-        if (baseFound != null)
-        {
-            if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
-            {
-                FireAtPointInWorld(baseFound);
-                Debug.Log("FIRING AT ENEMY BASES");
-
-            }
-            else // get closer to base if base is found
-            {
-                FollowPathToPointInWorld(baseFound, 1f);
-            }
-
-        }
         else
         {
             changeState = true;
@@ -267,27 +286,13 @@ public class SmartTank : AITank
     {
         Debug.Log("COLLECTING CONSUMABLES");
         waypointResetPos();
-        if(consumables.Count < 0)
-        {
-            FollowPathToRandomPoint(1f);
-            t += Time.deltaTime;
-            if (t > 10)
-            {
-                FindAnotherRandomPoint();
-                t = 0;
-            }
-        }
-        else
-        {
-            FollowPathToPointInWorld(consumable, 1f);
-            if(Vector3.Distance(transform.position, consumable.transform.position) < 5f)
-            {
-                consumable = null;
-            }
-        }
-        changeState = true;
 
-
+        FollowPathToPointInWorld(consumable, 1f);
+        if (Vector3.Distance(transform.position, consumable.transform.position) < 5f)
+        {
+            consumable = null;
+            changeState = true;
+        }
     }
 
 
