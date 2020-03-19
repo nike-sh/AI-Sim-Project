@@ -6,53 +6,46 @@ using UnityEngine;
 
 public class SmartTank : AITank
 {
-    private enum AIStates
+    private enum AIStates //The states of the AI 
     {
         idle,
         patrol,
         attack,
-        flee,
         collectConsumables,
         defendBase
     }
 
 
     [SerializeField] private AIStates state; //current state of the AI
-    [SerializeField] private bool changeState;
-    [SerializeField] float currentAmmo;
+    [SerializeField] private bool changeState; //controls the switch of the FSM. Allows to switch from one state to another
+    [SerializeField] float currentAmmo; 
     [SerializeField] float currentHealth;
     [SerializeField] float currentFuel;
 
     public Dictionary<GameObject, float> targets = new Dictionary<GameObject, float>();
     public Dictionary<GameObject, float> consumables = new Dictionary<GameObject, float>();
     public Dictionary<GameObject, float> bases = new Dictionary<GameObject, float>();
-    public List<GameObject> currentBases;
+    public List<GameObject> currentBases; //our bases
 
-    public GameObject waypoint;
+
     public GameObject target;
     public GameObject consumable;
     public GameObject baseFound;
 
-    bool searchingForHealth;
-    bool searchingForAmmo;
-    bool searchingForFuel;
-
     float t;
-    Vector3 waypointPos;
-    bool hasChangedPos;
-    [SerializeField]
-    bool work = false;
 
-    [SerializeField] int basesDestroyed = 0;
-    bool baseDestroyed;
-    float destroyT;
+    Vector3 waypointPos; //Position of the waypoint 
+    public GameObject waypoint; //Waypoint game object
+    bool hasChangedPos; //indicating if the position of the waypoint has changed
+
+    [SerializeField] int basesDestroyed = 0; //counter for destroyed enemy bases
+    float destroyT; //2 seconds are needed to destroy an enemy base. This is a timer which controls the destroyed enemy bases count.
 
 
 
     public override void AITankStart()
     {
         hasChangedPos = false;
-        baseDestroyed = false;
     }
 
 
@@ -74,7 +67,7 @@ public class SmartTank : AITank
     }
 
 
-    public void FSMController()
+    public void FSMController() //This function associates the states with their functionality
     {
 
         ChangeState();
@@ -102,7 +95,7 @@ public class SmartTank : AITank
     }
 
 
-    public void ChangeState()
+    public void ChangeState() // This is the finite state machine controller 
     {
         if (changeState)
         {
@@ -120,7 +113,7 @@ public class SmartTank : AITank
 
                 case AIStates.patrol:
 
-                    //Tank goes into attack state if there is enemy in sight
+                    //Tank goes into attack state if there is enemy in sight only if it has enough ammo and health, otherwise goes into patrol state
                     if (targets.Count > 0 && targets.First().Key != null && (GetAmmo < 4 || GetHealth < 40))
                     {
                         state = AIStates.patrol;
@@ -146,23 +139,25 @@ public class SmartTank : AITank
                         }
                     }
 
-                    //Tank goes into defend base state when at least 1 base has been destroyed
-                    if(basesDestroyed == 2 && currentBases.Count == 0)
+                    //Tank goes into patrol state when all enemy bases are destroyed and all of our bases are destroyed
+                    if (basesDestroyed == 2 && currentBases.Count == 0)
                     {
                         state = AIStates.patrol;
                         changeState = false;
                     }
 
+                    //Tank goes into defend base state if all enemy bases are destroyed, we have at least one base intact and we have enough health and at least 1 bullet
                     if (basesDestroyed == 2 && currentBases.Count > 0 && (GetAmmo > 0 && GetHealth >= 40))
                     {
                         state = AIStates.defendBase;
                         changeState = false;
                     }
 
-                    //Tank attacks base
-                    if(bases.Count > 0 && bases.First().Key != null && GetAmmo == 0)
+                    //Tank attacks base if it has ammo, otherwise it goes into patrol state
+                    if (bases.Count > 0 && bases.First().Key != null && GetAmmo == 0)
                     {
                         state = AIStates.patrol;
+                        changeState = false;
                     }
                     else if (bases.Count > 0 && bases.First().Key != null)
                     {
@@ -182,7 +177,7 @@ public class SmartTank : AITank
 
                 case AIStates.attack:
 
-                    //Tank goes into patrol state if there are no enemies, no eneny bases and if tank runs out of ammo
+                    //Tank goes into defend base state if all enemy bases are destroyed, we have at least one base intact and we have enough health and at least 1 bullet
                     if (target == null)
                     {
                         if (basesDestroyed == 2 && currentBases.Count > 0 && (GetAmmo >= 4 && GetHealth >= 40))
@@ -197,26 +192,24 @@ public class SmartTank : AITank
                         }
 
                     }
-                    else if(baseFound == null)
+                    //Tank goes into patrol state if there is no enemy base found
+                    else if (baseFound == null)
                     {
                         state = AIStates.patrol;
                         changeState = false;
                     }
-                    else if(GetAmmo < 4)
+                    //Tank goes into patrol state if he hasn't got enough ammo
+                    else if (GetAmmo < 4)
                     {
                         state = AIStates.patrol;
                         changeState = false;
                     }
-
-                    //Tank goes into defend base state if his fuel is really low
 
                     break;
 
 
 
                 case AIStates.defendBase:
-
-
 
                     //Tank goes into attack state if there is an enemy in sight
                     if (targets.Count > 0 && targets.First().Key != null)
@@ -229,7 +222,8 @@ public class SmartTank : AITank
                         }
                     }
 
-                    if(currentBases.Count == 0)
+                    //Tank goes into patrol state if all our bases are destroyed
+                    if (currentBases.Count == 0)
                     {
                         state = AIStates.patrol;
                         changeState = false;
@@ -239,7 +233,7 @@ public class SmartTank : AITank
 
 
                 case AIStates.collectConsumables:
-                    //Tank goes into attack state if there is enemy in sight
+                    //Tank goes into attack state if there is enemy in sight, otherwise it will return to patrol
                     if (targets.Count > 0 && targets.First().Key != null)
                     {
                         target = targets.First().Key;
@@ -266,7 +260,8 @@ public class SmartTank : AITank
         Debug.Log("IDLE");
     }
 
-    private void Patrol()
+
+    private void Patrol()  //This adds the patrol functionality of the tank
     {
         Debug.Log("PATROLING");
         waypointResetPos();
@@ -284,43 +279,46 @@ public class SmartTank : AITank
 
     }
 
-    private void Attack()
+
+    private void Attack() //This function adds the attack functionality of the tank
+
     {
-       
-        if(target != null && GetAmmo == 0)
+        waypointResetPos();
+
+        if (target != null && GetAmmo == 0)
         {
             changeState = true;
         }
-        else if(baseFound != null && GetAmmo <= 4)
+        else if (baseFound != null && GetAmmo <= 4)
         {
             changeState = true;
         }
-        
-        // Tank will prioritise attacking enemy tank over bases, if both are found
-        if (target != null && bases != null)
+
+        if (target != null && bases != null) // Tank will prioritise attacking enemy tank over bases, if both are found
+
         {
             Debug.Log("TANK IS ATTACKING");
-            //get closer to target, and fire
-            if (Vector3.Distance(transform.position, target.transform.position) < 35f)
+            if (Vector3.Distance(transform.position, target.transform.position) < 35f) //get closer to target and fire
+
             {
                 FireAtPointInWorld(target);
             }
-            else if (Vector3.Distance(transform.position, target.transform.position) > 55f)
+            else if (Vector3.Distance(transform.position, target.transform.position) > 55f) //if enemy tank is far enough from smartTank, smartTank will change states
             {
                 target = null;
                 changeState = true;
             }
             else
             {
-                FollowPathToPointInWorld(target, 0.8f);
+                FollowPathToPointInWorld(target, 0.8f); //if enemy tank is not near enough, the smartTank will get closer to it
             }
         }
-        // Tank will attack bases if they are found and no target is found
-        else if (baseFound != null && target == null && basesDestroyed == 0)
+        else if (baseFound != null && target == null && basesDestroyed == 0)  // Tank will attack bases if they are found and no target is found
+
         {
             if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
             {
-                
+
                 destroyT += Time.deltaTime;
                 FireAtPointInWorld(baseFound);
                 Debug.Log("FIRING AT ENEMY BASES");
@@ -330,11 +328,11 @@ public class SmartTank : AITank
             {
                 FollowPathToPointInWorld(baseFound, 0.5f);
             }
-            if(destroyT > 2)
+            if (destroyT > 2)
             {
                 basesDestroyed = 1;
                 destroyT = 0;
-            }  
+            }
         }
         else if (baseFound != null && target == null && basesDestroyed == 1)
         {
@@ -363,7 +361,8 @@ public class SmartTank : AITank
     }
 
 
-    private void CollectConsumable()
+    private void CollectConsumable() //This adds the collect consumable functionality 
+
     {
         Debug.Log("COLLECTING CONSUMABLES");
         waypointResetPos();
@@ -377,17 +376,17 @@ public class SmartTank : AITank
     }
 
 
-    private void DefendBase()
+    private void DefendBase() //This is the defend base function. It goes back to the base and makes sure it faces the right direction in case the enemy tank tries to attack our base
     {
-        
-        // Debug.Log("DEFENDING BASE");
+
+        Debug.Log("DEFENDING BASE");
         if (Vector3.Distance(transform.localPosition, waypoint.transform.position) > 6f)
         {
             FollowPathToPointInWorld(waypoint, 1f);
         }
         if (Vector3.Distance(transform.localPosition, waypoint.transform.position) < 5f)
         {
-            if(hasChangedPos == false)
+            if (hasChangedPos == false)
             {
                 waypointChangePos();
             }
@@ -396,7 +395,7 @@ public class SmartTank : AITank
     }
 
 
-    void waypointChangePos()
+    void waypointChangePos() //when the tank reaches the original waypoint position, the waypoint changes in order to make the tank face the right direction
     {
         waypointPos = waypoint.transform.position;
         waypointPos.x += 7;
@@ -406,9 +405,10 @@ public class SmartTank : AITank
     }
 
 
-    void waypointResetPos()
+    void waypointResetPos() //everytime the tank changes state the waypoint for defend base resets to it's original position;
+
     {
-        if(hasChangedPos == true)
+        if (hasChangedPos == true)
         {
             waypointPos = waypoint.transform.position;
             waypointPos.x -= 7;
@@ -417,109 +417,4 @@ public class SmartTank : AITank
             hasChangedPos = false;
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-    public void AITankUpdateSalimsEdition()
-{
-    if (work == true)
-    {
-        //Get the targets found from the sensor view
-        targets = GetTargetsFound;
-        consumables = GetConsumablesFound;
-        bases = GetBasesFound;
-
-
-        //if low health or ammo, go searching
-        if (GetHealth < 50 || GetAmmo < 5)
-        {
-            if (consumables.Count > 0)
-            {
-                consumable = consumables.First().Key;
-                FollowPathToPointInWorld(consumable, 1f);
-                t += Time.deltaTime;
-                if (t > 10)
-                {
-                    FindAnotherRandomPoint();
-                    t = 0;
-                }
-            }
-            else
-            {
-                target = null;
-                consumable = null;
-                baseFound = null;
-                FollowPathToRandomPoint(1f);
-            }
-        }
-        else
-        {
-            //if there is a target found
-            if (targets.Count > 0 && targets.First().Key != null)
-            {
-                target = targets.First().Key;
-                if (target != null)
-                {
-                    //get closer to target, and fire
-                    if (Vector3.Distance(transform.position, target.transform.position) < 25f)
-                    {
-                        FireAtPointInWorld(target);
-                    }
-                    else
-                    {
-                        FollowPathToPointInWorld(target, 1f);
-                    }
-                }
-            }
-            else if (consumables.Count > 0)
-            {
-                //if consumables are found, go to it.
-                consumable = consumables.First().Key;
-                FollowPathToPointInWorld(consumable, 1f);
-
-            }
-            else if (bases.Count > 0)
-            {
-                //if base if found
-                baseFound = bases.First().Key;
-                if (baseFound != null)
-                {
-                    //go close to it and fire
-                    if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
-                    {
-                        FireAtPointInWorld(baseFound);
-                    }
-                    else
-                    {
-                        FollowPathToPointInWorld(baseFound, 1f);
-                    }
-                }
-            }
-            else
-            {
-                //searching
-                target = null;
-                consumable = null;
-                baseFound = null;
-                FollowPathToRandomPoint(1f);
-                t += Time.deltaTime;
-                if (t > 10)
-                {
-                    FindAnotherRandomPoint();
-                    t = 0;
-                }
-            }
-        }
-
-    }
-}
 }
