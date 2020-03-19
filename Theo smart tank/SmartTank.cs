@@ -27,25 +27,34 @@ public class SmartTank : AITank
     public Dictionary<GameObject, float> targets = new Dictionary<GameObject, float>();
     public Dictionary<GameObject, float> consumables = new Dictionary<GameObject, float>();
     public Dictionary<GameObject, float> bases = new Dictionary<GameObject, float>();
+    public List<GameObject> currentBases;
 
-    public GameObject homeTreeeee;
+    public GameObject waypoint;
     public GameObject target;
     public GameObject consumable;
     public GameObject baseFound;
-    public List<GameObject> currentBases;
-    float timer;
-    private bool workpls = true;
+
+    bool searchingForHealth;
+    bool searchingForAmmo;
+    bool searchingForFuel;
+
+    float t;
+    Vector3 waypointPos;
+    bool hasChangedPos;
+    [SerializeField]
+    bool work = false;
 
 
     public override void AITankStart()
     {
-
+        hasChangedPos = false;
     }
 
 
     public override void AITankUpdate()
     {
         targets = GetTargetsFound;
+        bases = GetBasesFound;
         consumables = GetConsumablesFound;
         currentBases = GetMyBases;
         currentAmmo = GetAmmo;
@@ -77,10 +86,6 @@ public class SmartTank : AITank
         {
             Attack();
         }
-        else if (state == AIStates.findCover)
-        {
-            FindCover();
-        }
         else if (state == AIStates.collectConsumables)
         {
             CollectConsumable();
@@ -92,23 +97,25 @@ public class SmartTank : AITank
     }
 
 
-
     public void ChangeState()
     {
         if (changeState)
         {
             switch (state)
             {
+
+
+
                 case AIStates.idle:
-                    {
+                    state = AIStates.patrol;
+                    changeState = false;
+                    break;
 
-                        state = AIStates.patrol;
-                        
-                        changeState = false;
-                        break;
 
-                    }
+
                 case AIStates.patrol:
+
+                    //Tank goes into attack state if there is enemy in sight
                     if (targets.Count > 0 && targets.First().Key != null)
                     {
                         target = targets.First().Key;
@@ -117,157 +124,218 @@ public class SmartTank : AITank
                             state = AIStates.attack;
                             changeState = false;
                         }
-                        else if (bases.Count < 2)
+                    }
+
+                    //Tank goes into collect consumable state if there is a consumable in sight and there are no enemies attacking
+                    if (consumables.Count > 0 && consumables.First().Key != null)
+                    {
+                        consumable = consumables.First().Key;
+                        if(consumable != null)
                         {
-                            state = AIStates.defendBase;
+                            state = AIStates.collectConsumables;
                             changeState = false;
                         }
                     }
+
+                    //Tank goes into defend base state when at least 1 base has been destroyed
+                    if (GetFuel < 25 && currentBases.Count < 2)
+                    {
+                        state = AIStates.defendBase;
+                        changeState = false;
+                    }
+
+                    //Tank attacks base
+                    if (bases.Count > 0 && bases.First().Key != null)
+                    {
+                        baseFound = bases.First().Key;
+                        if (baseFound != null && currentAmmo >= 4)
+                        {
+                            state = AIStates.attack;
+                            changeState = false;
+                        }
+
+                    }
                     break;
 
+
+
+
+
                 case AIStates.attack:
+
+                    //Tank goes into patrol state if there are no enemies
                     if (target == null)
                     {
                         state = AIStates.patrol;
                         changeState = false;
                     }
-                    if (GetHealth < 50 || GetAmmo < 5)
+
+                    //Tank goes into defend base state if his fuel is really low
+                    if (GetFuel < 25 && currentBases.Count < 2)
                     {
-                        //state = AIStates.findCover;
-                        //changeState = false;
-                    }
-                    break;
-
-                case AIStates.findCover:
-
-                    break;
-
-                case AIStates.collectConsumables:
-                    if (GetHealth < 50 || GetAmmo < 5 || GetFuel < 50)
-                    {
+                        state = AIStates.defendBase;
                         changeState = false;
                     }
                     break;
+
+
 
                 case AIStates.defendBase:
-                    if (target != null)
+
+                    //Tank goes into attack state if there is an enemy in sight
+                    if (targets.Count > 0 && targets.First().Key != null)
                     {
-                        state = AIStates.attack;
-                        changeState = false;
+                        target = targets.First().Key;
+                        if (target != null)
+                        {
+                            state = AIStates.attack;
+                            changeState = false;
+                        }
                     }
-                    else if (bases.Count < 1)
+                    break;
+
+
+                case AIStates.collectConsumables:
+                    //Tank goes into attack state if there is enemy in sight
+                    if (targets.Count > 0 && targets.First().Key != null)
+                    {
+                        target = targets.First().Key;
+                        if (target != null)
+                        {
+                            state = AIStates.attack;
+                            changeState = false;
+                        }
+                    }
+                    else
                     {
                         state = AIStates.patrol;
                         changeState = false;
                     }
                     break;
-
             }
         }
     }
 
+
     private void Idle()
     {
         changeState = true;
-        Debug.Log("AI IS IDLE");
+        Debug.Log("IDLE");
     }
 
     private void Patrol()
     {
-        Debug.Log("AI  IS PATROLLING");
+        Debug.Log("PATROLING");
+        waypointResetPos();
         FollowPathToRandomPoint(1f);
-        timer += Time.deltaTime;
-        if (timer > 10)
+        t += Time.deltaTime;
+        if (t > 10)
         {
             FindAnotherRandomPoint();
-            timer = 0;
+            t = 0;
         }
+ 
         changeState = true;
     }
 
     private void Attack()
     {
-        Debug.Log("TANK IS ATTACKING");
-        //get closer to target, and fire
-        if (Vector3.Distance(transform.position, target.transform.position) < 25f)
+       
+        // If base is found, and distance is less than 25 fire at base else change state to patrol
+        if (baseFound != null && target == null)
         {
-            FireAtPointInWorld(target);
-        }
-        else if (Vector3.Distance(transform.position, target.transform.position) > 55f)
-        {
-            target = null;
-            changeState = true;
-        }
-        else
-        {
-            FollowPathToPointInWorld(target, 1f);
-        }
-
-    }
-
-    /// <summary>
-    /// NEED TO IMPLIMENT
-    /// </summary>
-    private void FindCover()
-    {
-        Debug.Log("FINDING COVER");
-    }
-
-    private void CollectConsumable()
-    {
-        Debug.Log("FINDING CONSUMABLES");
-        if (consumable = GameObject.FindGameObjectWithTag("Health"))
-        {
-            Debug.Log("FOUND HEALTH");
-
-        }
-        if (consumables.Count > 0)
-        {
-            consumable = consumables.First().Key;
-            FollowPathToPointInWorld(consumable, 1f);
-            timer += Time.deltaTime;
-            if (timer > 10)
+            if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
             {
-                FindAnotherRandomPoint();
-                timer = 0;
+                FireAtPointInWorld(baseFound);
+                Debug.Log("FIRING AT ENEMY BASES");
+
             }
-        }
-        else
-        {
-            target = null;
-            consumable = null;
-            baseFound = null;
-            FollowPathToRandomPoint(1f);
-            changeState = true;
-        }
-    }
-
-    private void DefendBase()
-    {
-        if (currentBases.Count < 2)
-        {
-            Debug.Log("DEFENDING BASE");
-            FollowPathToPointInWorld( homeTreeeee ,1f);
-            if (target == null)
+            else // get closer to base if base is found
             {
-                StopTank();
+                FollowPathToPointInWorld(baseFound, 1f);
+            }
+
+        }
+        else if (target != null)
+        {
+            Debug.Log("TANK IS ATTACKING");
+            //get closer to target, and fire
+            if (Vector3.Distance(transform.position, target.transform.position) < 25f)
+            {
+                FireAtPointInWorld(target);
+            }
+            else if (Vector3.Distance(transform.position, target.transform.position) > 55f)
+            {
+                target = null;
+                changeState = true;
             }
             else
             {
-                changeState = true;
-                state = AIStates.attack;
-
-                StartTank();
+                FollowPathToPointInWorld(target, 1f);
             }
         }
-        else if (currentBases.Count == 0)
+
+        else
         {
-            state = AIStates.patrol;
             changeState = true;
         }
     }
 
 
+    private void CollectConsumable()
+    {
+        Debug.Log("COLLECTING CONSUMABLES");
+        waypointResetPos();
+
+        FollowPathToPointInWorld(consumable, 1f);
+        if (Vector3.Distance(transform.position, consumable.transform.position) < 5f)
+        {
+            consumable = null;
+            changeState = true;
+        }
+    }
+
+
+    private void DefendBase()
+    {
+        
+        // Debug.Log("DEFENDING BASE");
+        if (Vector3.Distance(transform.localPosition, waypoint.transform.position) > 6f)
+        {
+            FollowPathToPointInWorld(waypoint, 1f);
+        }
+        if (Vector3.Distance(transform.localPosition, waypoint.transform.position) < 5f)
+        {
+            if(hasChangedPos == false)
+            {
+                waypointChangePos();
+            }
+            changeState = true;
+        }
+    }
+
+
+    void waypointChangePos()
+    {
+        waypointPos = waypoint.transform.position;
+        waypointPos.x += 7;
+        waypointPos.z += 15;
+        waypoint.transform.position = waypointPos;
+        hasChangedPos = true;
+    }
+
+
+    void waypointResetPos()
+    {
+        if(hasChangedPos == true)
+        {
+            waypointPos = waypoint.transform.position;
+            waypointPos.x -= 7;
+            waypointPos.z -= 15;
+            waypoint.transform.position = waypointPos;
+            hasChangedPos = false;
+        }
+    }
 
 
 
@@ -281,96 +349,96 @@ public class SmartTank : AITank
 
 
     public void AITankUpdateSalimsEdition()
+{
+    if (work == true)
     {
-        if (workpls == false)
+        //Get the targets found from the sensor view
+        targets = GetTargetsFound;
+        consumables = GetConsumablesFound;
+        bases = GetBasesFound;
+
+
+        //if low health or ammo, go searching
+        if (GetHealth < 50 || GetAmmo < 5)
         {
-            //Get the targets found from the sensor view
-            targets = GetTargetsFound;
-            consumables = GetConsumablesFound;
-            bases = GetBasesFound;
-
-
-            //if low health or ammo, go searching
-            if (GetHealth < 50 || GetAmmo < 5)
+            if (consumables.Count > 0)
             {
-                if (consumables.Count > 0)
+                consumable = consumables.First().Key;
+                FollowPathToPointInWorld(consumable, 1f);
+                t += Time.deltaTime;
+                if (t > 10)
                 {
-                    consumable = consumables.First().Key;
-                    FollowPathToPointInWorld(consumable, 1f);
-                    timer += Time.deltaTime;
-                    if (timer > 10)
-                    {
-                        FindAnotherRandomPoint();
-                        timer = 0;
-                    }
-                }
-                else
-                {
-                    target = null;
-                    consumable = null;
-                    baseFound = null;
-                    FollowPathToRandomPoint(1f);
+                    FindAnotherRandomPoint();
+                    t = 0;
                 }
             }
             else
             {
-                //if there is a target found
-                if (targets.Count > 0 && targets.First().Key != null)
+                target = null;
+                consumable = null;
+                baseFound = null;
+                FollowPathToRandomPoint(1f);
+            }
+        }
+        else
+        {
+            //if there is a target found
+            if (targets.Count > 0 && targets.First().Key != null)
+            {
+                target = targets.First().Key;
+                if (target != null)
                 {
-                    target = targets.First().Key;
-                    if (target != null)
+                    //get closer to target, and fire
+                    if (Vector3.Distance(transform.position, target.transform.position) < 25f)
                     {
-                        //get closer to target, and fire
-                        if (Vector3.Distance(transform.position, target.transform.position) < 25f)
-                        {
-                            FireAtPointInWorld(target);
-                        }
-                        else
-                        {
-                            FollowPathToPointInWorld(target, 1f);
-                        }
+                        FireAtPointInWorld(target);
                     }
-                }
-                else if (consumables.Count > 0)
-                {
-                    //if consumables are found, go to it.
-                    consumable = consumables.First().Key;
-                    FollowPathToPointInWorld(consumable, 1f);
-
-                }
-                else if (bases.Count > 0)
-                {
-                    //if base if found
-                    baseFound = bases.First().Key;
-                    if (baseFound != null)
+                    else
                     {
-                        //go close to it and fire
-                        if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
-                        {
-                            FireAtPointInWorld(baseFound);
-                        }
-                        else
-                        {
-                            FollowPathToPointInWorld(baseFound, 1f);
-                        }
-                    }
-                }
-                else
-                {
-                    //searching
-                    target = null;
-                    consumable = null;
-                    baseFound = null;
-                    FollowPathToRandomPoint(1f);
-                    timer += Time.deltaTime;
-                    if (timer > 10)
-                    {
-                        FindAnotherRandomPoint();
-                        timer = 0;
+                        FollowPathToPointInWorld(target, 1f);
                     }
                 }
             }
+            else if (consumables.Count > 0)
+            {
+                //if consumables are found, go to it.
+                consumable = consumables.First().Key;
+                FollowPathToPointInWorld(consumable, 1f);
 
+            }
+            else if (bases.Count > 0)
+            {
+                //if base if found
+                baseFound = bases.First().Key;
+                if (baseFound != null)
+                {
+                    //go close to it and fire
+                    if (Vector3.Distance(transform.position, baseFound.transform.position) < 25f)
+                    {
+                        FireAtPointInWorld(baseFound);
+                    }
+                    else
+                    {
+                        FollowPathToPointInWorld(baseFound, 1f);
+                    }
+                }
+            }
+            else
+            {
+                //searching
+                target = null;
+                consumable = null;
+                baseFound = null;
+                FollowPathToRandomPoint(1f);
+                t += Time.deltaTime;
+                if (t > 10)
+                {
+                    FindAnotherRandomPoint();
+                    t = 0;
+                }
+            }
         }
+
     }
+}
 }
